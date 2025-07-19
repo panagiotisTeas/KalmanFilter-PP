@@ -42,6 +42,8 @@ dependencies:
   - libev=4.33=h7f8727e_1
   - libffi=3.4.4=h6a678d5_1
   - libgcc-ng=11.2.0=h1234567_1
+  - libgfortran-ng=11.2.0=h00389a5_1
+  - libgfortran5=11.2.0=h1234567_1
   - libgl=1.7.0=h5eee18b_2
   - libglib=2.84.2=h37c7471_0
   - libglvnd=1.7.0=h5eee18b_2
@@ -55,6 +57,7 @@ dependencies:
   - libpng=1.6.39=h5eee18b_0
   - libpq=17.4=h02b6914_1
   - libprotobuf=5.29.3=h3cdef7c_1
+  - libspatialindex=1.9.3=h2531618_0
   - libssh2=1.11.1=h251f7ec_0
   - libstdcxx-ng=11.2.0=h1234567_1
   - libtiff=4.7.0=hde9077f_0
@@ -101,6 +104,8 @@ dependencies:
   - qtwebchannel=6.7.3=h7934f7d_1
   - qtwebsockets=6.7.3=h7934f7d_1
   - readline=8.2=h5eee18b_0
+  - rtree=1.0.1=py313h06a4308_0
+  - scipy=1.15.3=py313h7f54423_0
   - seaborn=0.13.2=py313h06a4308_3
   - setuptools=72.1.0=py313h06a4308_0
   - sip=6.10.0=py313h6a678d5_0
@@ -110,6 +115,7 @@ dependencies:
   - tbb=2021.8.0=hdb19cb5_0
   - tk=8.6.14=h993c535_1
   - tornado=6.5.1=py313h5eee18b_0
+  - tqdm=4.67.1=py313h7040dfc_0
   - tzdata=2025b=h04d1e81_0
   - wheel=0.45.1=py313h06a4308_0
   - xcb-util=0.4.1=h5eee18b_2

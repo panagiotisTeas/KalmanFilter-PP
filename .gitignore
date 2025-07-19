@@ -5,3 +5,5 @@ data/processed/event0000010[1-9][0-9].csv
 
 data/raw/event00000100[1-9]-*.csv
 data/raw/event0000010[1-9][0-9]-*.csv
+
+*.log
