@@ -162,6 +162,8 @@ class Helix:
     def __str__(self) -> str:
         return f"Parameters: [d0 = {self.state[0]}(mm), phi0 = {self.state[1]}(rad), omega = {self.state[2]}(mm^-1), z0 = {self.state[3]}(mm), cotTheta = {self.state[4]}]"
 
+#* The helix seeding is from Applied Fitting Theory IV | Formulas for Track Fitting by Paul Avery
+
 def helix_seeding(position : np.ndarray, momentum : np.ndarray, charge : int, B_field : float, x_error_percent : float = 0, y_error_percent : float = 0, z_error_percent : float = 0) -> np.ndarray:
     """
     Seeds a helix from the given position and momentum of a particle. 
