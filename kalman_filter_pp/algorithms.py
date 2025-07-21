@@ -1,0 +1,128 @@
+import os
+import csv
+
+import numpy as np
+import pandas as pd
+
+from tqdm import tqdm
+
+from .errors import ErrorFlags
+from .logger import get_logger
+from .config import KALMAN_FILTER_EXPORT_PATH, PARTICLE_IMPORT_PATH
+from .filter import make_spacepoints, filter_spacepoints, filter_momentum, filter_region
+from .helix import Helix, helix_seeding
+from .matrices import F, P, Q, R, get_H
+from .collision_detection import build_rtree, build_delaunay
+
+logger = get_logger()
+
+def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, spec_event : int = None, spec_particle : int = None, magnetic_field : float = 2, particle_iterations : int = 10000000, output : str = KALMAN_FILTER_EXPORT_PATH) -> None:
+    
+    #* Check if the output file exists, if not create it with headers
+    if not os.path.exists(output):
+        with open(output, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["event_number", "particle_id", "is_vertex"
+                            #* Track parameters
+                            "d0", "phi0", "q/pT", "z0", "theta",
+                            #* Covariance matrix P
+                            "P00", "P01", "P02", "P03", "P04",
+                            "P10", "P11", "P12", "P13", "P14",
+                            "P20", "P21", "P22", "P23", "P24", 
+                            "P30", "P31", "P32", "P33", "P34",
+                            "P40", "P41", "P42", "P43", "P44", 
+                            #* Kalman gain K
+                            "K00", "K01",
+                            "K10", "K11",
+                            "K20", "K21", 
+                            "K30", "K31", 
+                            "K40", "K41"])
+    
+    #* Initialize the iteration counter
+    iteration = 1
+
+    #* Initialize the R-tree and Delaunay triangulation
+    rtree = build_rtree()
+    delaunay = build_delaunay()
+
+    #* If a specific event is specified, look only at that event
+    if spec_event is not None:
+        event_start = spec_event
+        event_end = spec_event + 1
+
+    #* Iterate over the events
+    for event_number in tqdm(range(event_start, event_end)):
+
+        #* Load the particle data for the event
+        event_data = pd.read_csv(PARTICLE_IMPORT_PATH + f"event00000{event_number}.csv")
+        #* Get unique particle IDs in the event
+        event_particle_ids = np.unique(event_data["particle_id"].to_numpy())
+
+        #* If a specific particle ID is specified, filter the particle IDs
+        if spec_event is not None:
+            event_particle_ids = event_particle_ids[event_particle_ids == spec_event]
+
+        #* Iterate over the particle IDs
+        for particle_id in tqdm(event_particle_ids):
+            
+            if iteration > particle_iterations:
+                logger.info(f"Reached particle iteration limit: {particle_iterations}")
+                return
+
+            errors = ErrorFlags(0b00000000)
+            rows_to_write = []
+
+            #* Get the particle data for the current particle ID
+            particle_data = event_data[event_data["particle_id"] == particle_id].to_numpy()
+
+            #* Get the measurements for the particle and create spacepoints
+            hit_measurements = particle_data[:, [2,3,5,6,7]]  #* 2: volume_id, 3: layer_id, 5: x, 6: y, 7: z
+            spacepoint_measurements = make_spacepoints(hit_measurements)
+
+            #* Filtering spacepoints
+            filter_spacepoints(spacepoint_measurements, errors, amount=5)
+            if errors.bit_0:
+                logger.debug(f"Skipping particle {particle_id} in event {event_number} due to too few measurements.")
+                continue
+
+            seeding_momentum = particle_data[1, 11:14]  #* 11: px, 12: py, 13: pz
+            seeding_charge = particle_data[1, 14]       #* 14: charge
+
+            #* Filtering momentum
+            filter_momentum(seeding_momentum, errors, momentum=2)
+            if errors.bit_1:
+                logger.debug(f"Skipping particle {particle_id} in event {event_number} due to low momentum.")
+                continue
+
+            #* Filtering region
+            filter_region(spacepoint_measurements, errors, 70, 110, 0, 180)
+            if errors.bit_2:
+                logger.debug(f"Skipping particle {particle_id} in event {event_number} due to being outside the region.")
+                continue
+
+            #* Write the truth parameters as the first row to every particle
+            helix_truth = Helix(helix_seeding, spacepoint_measurements[0, 2:5], particle_data[0, 11:14], seeding_charge, magnetic_field)
+            rows_to_write.append([event_number, particle_id, 1] + 
+                                helix_truth.get_state().flatten().tolist() +
+                                P.flatten().tolist() +
+                                [0.0] * (5 * 2))  #* Placeholder for Kalman gain K
+            spacepoint_measurements = spacepoint_measurements[1:]  #* Remove the first spacepoint as it is already used
+            
+            #* Initialize the Kalman filter with the first spacepoint
+            helix = Helix(helix_seeding, spacepoint_measurements[0, 2:5], seeding_momentum, seeding_charge, magnetic_field)
+            position_at_detector = spacepoint_measurements[0, :2]
+            spacepoint_measurements = spacepoint_measurements[1:]
+
+            rows_to_write.append([event_number, particle_id, 0] + 
+                                helix.get_state().flatten().tolist() +
+                                P.flatten().tolist() +
+                                [0.0] * (5 * 2))  #* Placeholder for Kalman gain K
+
+            break
+
+        break
+
+    with open(output, mode="a", newline='') as f:
+                writer = csv.writer(f)
+                writer.writerows(rows_to_write)
+

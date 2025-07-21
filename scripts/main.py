@@ -1,31 +1,11 @@
 import numpy as np
 import pandas as pd
+import logging
 
-from kalman_filter_pp.config import PARTICLE_IMPORT_PATH
-from kalman_filter_pp.collision_detection import build_rtree, build_delaunay, collision_detection
-from kalman_filter_pp.helix import Helix, helix_seeding
+from kalman_filter_pp.algorithms import linear_kalman_algorithm
+from kalman_filter_pp.logger import set_log_level
 
-df = pd.read_csv(PARTICLE_IMPORT_PATH + "event000001000.csv")
+set_log_level(logging.INFO)
 
-rtree = build_rtree()
-delaunay = build_delaunay()
-
-for index, row in df.iterrows():
-    hit = row["hit_id"]
-    
-    if hit != -1:
-        continue
-
-    position = np.array([row["x"], row["y"], row["z"]])
-    momentum = np.array([row["tpx"], row["tpy"], row["tpz"]])
-    charge = row["q"]
-    magnetic_field = 2
-
-    helix = Helix(helix_seeding, position, momentum, charge, magnetic_field)
-
-    hit, det_id = collision_detection(helix, rtree, delaunay, np.array([8, 2]))
-
-    print(f"Hit: {hit}, Detector ID: {det_id}")
-
-    break
+linear_kalman_algorithm()
 

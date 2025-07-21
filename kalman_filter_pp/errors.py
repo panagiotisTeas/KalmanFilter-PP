@@ -14,6 +14,13 @@ class ErrorFlags(BitFlags):
         3 : "DETECTOR_COLLISION_FAILED",    #* 0b1000
     }
 
+    def filtering(self) -> bool:
+        """
+        Check if any filtering error flags are set.
+        """
+        
+        return self.bit_0 | self.bit_1 | self.bit_2
+
     def list_active_flags(self):
         """
         List all active error flags.

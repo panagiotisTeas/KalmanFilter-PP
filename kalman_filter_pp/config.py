@@ -13,3 +13,5 @@ LOG_LEVEL = logging.DEBUG
 DETECTOR_IMPORT_PATH = os.path.join(BASE_DIR, "data/processed/")
 PARTICLE_IMPORT_PATH = os.path.join(BASE_DIR, "data/processed/")
 BOUNDS_IMPORT_PATH = os.path.join(BASE_DIR, "data/processed/")
+
+KALMAN_FILTER_EXPORT_PATH = os.path.join(BASE_DIR, "output/logs/kalman_filter.csv")
