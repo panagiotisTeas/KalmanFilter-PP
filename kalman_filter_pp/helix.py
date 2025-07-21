@@ -233,3 +233,59 @@ def helix_seeding(position : np.ndarray, momentum : np.ndarray, charge : int, B_
     z0 = z - s * cotTheta
 
     return np.array([d0, phi0, omega, z0, cotTheta]), s
+
+def parameters_transformation(parameters : np.ndarray, sign : int, mode : int = 0) -> np.ndarray:
+    """
+    Transforms the helix parameters between two representations:
+    - From [d0, phi0, omega, z0, cotTheta] -> [d1, phi0, omega~, z0, cotTheta]
+    - From [d1, phi0, omega~, z0, cotTheta] -> [d0, phi0, omega, z0, cotTheta]
+
+    Parameters
+    ----------
+    parameters (np.ndarray): Array of helix parameters to be transformed.
+
+    sign (int): Sign of the curvature (1 for positive, -1 for negative).
+    
+    mode (int): Transformation mode (0 for forward, 1 for backward). Default is 0.
+
+    Returns
+    -------
+    np.ndarray: Transformed helix parameters in the specified mode.
+
+    Example usage
+    -------
+    >>> params = np.array([0.1, 0.5, 0.01, 0.0, 1.0])  # [d0, phi0, omega, z0, cotTheta]
+    >>> transformed_params = parameters_transformation(params, sign=1, mode=0)
+    >>> print(transformed_params)  # [d1, phi0, omega~, z0, cotTheta]
+    >>> transformed_params = parameters_transformation(transformed_params, sign=1, mode=1)
+    >>> print(transformed_params)  # [d0, phi0, omega, z0, cotTheta]
+    """
+
+    if mode == 0:
+        d0 = parameters[0]
+        phi0 = parameters[1]
+        omega = parameters[2]
+        z0 = parameters[3]
+        cot_theta = parameters[4]
+
+        d1 = d0 * (1 + omega * d0 / 2) / (1 + omega * d0)
+        omega_tilde = omega / (2 + 2 * omega * d0)
+
+        return np.array([d1, phi0, omega_tilde, z0, cot_theta])
+
+    else:
+        d1 = parameters[0]
+        phi0 = parameters[1]
+        omega_tilde = parameters[2]
+        z0 = parameters[3]
+        cot_theta = parameters[4]
+
+        omega = 2 * omega_tilde / np.sqrt(1 - 4 * omega_tilde * d1)
+        d0 = 0
+        if np.sign(omega) == sign:
+            d0 = (1 - np.sqrt(1 - 4 * omega_tilde * d1)) / (2 * omega_tilde)
+        else:
+            omega = -omega
+            d0 = (1 + np.sqrt(1 - 4 * omega_tilde * d1)) / (2 * omega_tilde)
+
+        return np.array([d0, phi0, omega, z0, cot_theta])

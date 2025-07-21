@@ -16,11 +16,11 @@ P = np.array([[4e-2, 0e-0,   0e-0, 0e-0,   0e-0],    #* d0
               [0e-0, 0e-0,   0e-0, 0e-0,   7e-6]])   #* theta
 
 #* Process noise covariance matrix for the Kalman filter
-Q = np.array([[1e-0, 0e-0, 0e-0, 0e-0, 0e-0],   #* d1
+Q = np.array([[1e-0, 0e-0, 0e-0, 0e-0, 0e-0],   #* d0
               [0e-0, 1e-0, 0e-0, 0e-0, 0e-0],   #* phi0  
-              [0e-0, 0e-0, 1e-0, 0e-0, 0e-0],   #* omega~
+              [0e-0, 0e-0, 1e-0, 0e-0, 0e-0],   #* q/pt
               [0e-0, 0e-0, 0e-0, 1e-0, 0e-0],   #* z0
-              [0e-0, 0e-0, 0e-0, 0e-0, 1e-0]])  #* cotTheta
+              [0e-0, 0e-0, 0e-0, 0e-0, 1e-0]])  #* theta
 
 #* Measurement noise covariance for the Kalman filter
 R = np.array([[1, 0],   #* phi
