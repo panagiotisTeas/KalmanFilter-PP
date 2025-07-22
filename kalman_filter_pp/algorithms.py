@@ -12,8 +12,9 @@ from .config import KALMAN_FILTER_EXPORT_PATH, PARTICLE_IMPORT_PATH
 from .filter import make_spacepoints, filter_spacepoints, filter_momentum, filter_region, choose_spacepoint
 from .helix import Helix, helix_seeding, parameters_transformation
 from .matrices import F, P, Q, R, get_H
-from .jacobians import xy_jacobian, rz_jacobian, forward_jacobian, backward_jacobian, qpt_jacobian, omega_jacobian
+from .jacobians import forward_jacobian, backward_jacobian, qpt_jacobian, omega_jacobian
 from .collision_detection import build_rtree, build_delaunay, collision_detection
+from .hit_miss import hit_miss
 from .linear_kalman import kf_predict, kf_update
 
 logger = get_logger()
@@ -117,15 +118,18 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
                                 P.flatten().tolist() +
                                 [0.0] * (5 * 2))  #* Placeholder for Kalman gain K
             
+            #* Initialize the covariance matrix
+            P_cov = P
+            
             #* Iterate over the spacepoints
             #TODO: Increase the iteration counter
             while spacepoint_measurements.shape[0] > 0:
                 
                 #* Transform the state and covariance matrix from [d0, phi0, q/pt, z0, theta] -> [d1, phi0, omega~, z0, cotTheta]
-                P_transformed = forward_jacobian(helix) @ qpt_jacobian(helix) @ P @ qpt_jacobian(helix).T @ forward_jacobian(helix).T
+                P_transformed = forward_jacobian(helix) @ qpt_jacobian(helix) @ P_cov @ qpt_jacobian(helix).T @ forward_jacobian(helix).T
                 state_transformed = parameters_transformation(helix.get_state(), seeding_charge, 0)
                 #* Kalman filter prediction step
-                state_predicted, P_predicted = kf_predict(state_transformed, P_transformed, F, Q)
+                state_predicted, P_predicted = kf_predict(state_transformed, P_transformed, F, forward_jacobian(helix) @ qpt_jacobian(helix) @ Q @ qpt_jacobian(helix).T @ forward_jacobian(helix).T)
                 #* Transform the predicted state and covariance from [d1, phi0, omega~, z0, cotTheta] -> [d0, phi0, omega, z0, theta]
                 helix.update_state(parameters_transformation(state_predicted, seeding_charge, 1))
                 P_back = backward_jacobian(helix) @ P_predicted @ backward_jacobian(helix).T
@@ -151,21 +155,36 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
                     errors.bit_5 = 1
                     break
 
+                #* Update the arc length of the helix
+                helix.update_arclength(measured_hit[4])
+
                 #* Check if the measurement is inside the error ellipse
-                is_inside = hit_miss()
+                is_inside = hit_miss(measured_hit[2:], predicted_hit, helix, P_back, position_at_detector[0], helix.get_arclength(), confidence_level=0.95)
                 if is_inside is False:
                     errors.bit_6 = 1
                     break
 
+                #* Update the Kalman filter with the measurement
+                state_pre_update = parameters_transformation(helix.get_state(), seeding_charge, 0)
+                P_pre_update = forward_jacobian(helix) @ P_back @ forward_jacobian(helix).T
+                #* Kalman filter update step
+                state_updated, P_updated, K = kf_update(state_pre_update, P_pre_update, np.array([np.atan2(measured_hit[3], measured_hit[2]), measured_hit[4]]).T, get_H(np.linalg.norm(measured_hit[2:4]), helix.get_arclength()), R)
+                #* Transform the updated state and covariance from [[d1, phi0, omega~, z0, cotTheta] -> [d0, phi0, omega, z0, theta]
+                helix.update_state(parameters_transformation(state_predicted, seeding_charge, 1))
+                P_cov = omega_jacobian(helix) @ backward_jacobian(helix) @ P_predicted @ backward_jacobian(helix).T @ omega_jacobian(helix).T
 
+                rows_to_write.append([event_number, particle_id, 0] + 
+                                    helix.get_state().flatten().tolist() +
+                                    P_cov.flatten().tolist() +
+                                    K.flatten().tolist())
 
-            break
-
-        logger.debug(errors.to_json())
-
-        break
-
-    with open(output, mode="a", newline='') as f:
-                writer = csv.writer(f)
-                writer.writerows(rows_to_write)
+            #* If there are any errors, log them
+            if len(errors.list_active_flags()) > 0:
+                logger.debug(errors.to_json())
+                continue
+            
+            #* Write the rows to the output file
+            with open(output, mode="a", newline='') as f:
+                        writer = csv.writer(f)
+                        writer.writerows(rows_to_write)
 

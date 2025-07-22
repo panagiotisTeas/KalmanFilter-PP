@@ -137,7 +137,7 @@ class Helix:
 
         self.state = new_state
 
-    def update_arclength(self, new_arclength : float) -> None:
+    def update_arclength(self, z : float) -> None:
         """
         Updates the arc length value.
 
@@ -157,7 +157,7 @@ class Helix:
         15.0
         """
 
-        self.arclength = new_arclength
+        self.arclength = (z - self.state[3]) / self.state[4]
 
     def __str__(self) -> str:
         return f"Parameters: [d0 = {self.state[0]}(mm), phi0 = {self.state[1]}(rad), omega = {self.state[2]}(mm^-1), z0 = {self.state[3]}(mm), cotTheta = {self.state[4]}]"
