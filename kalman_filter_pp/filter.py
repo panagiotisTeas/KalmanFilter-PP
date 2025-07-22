@@ -137,3 +137,47 @@ def filter_region(data : np.ndarray, flags : ErrorFlags, lower_theta : float = 7
 
     if not (theta_in_bounds and phi_in_bounds):
         flags.bit_2 = 1
+
+def choose_spacepoint(spacepoints : np.ndarray, current : np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Choose a spacepoint from the given spacepoints based on the current volume and layer.
+
+    Parameters
+    ----------
+    spacepoints (np.ndarray): Array of spacepoints with volume and layer information.
+
+    current (np.ndarray): Current volume and layer information.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]: Tuple containing the remaining spacepoints and the matched row.
+
+    Example usage
+    ----------
+    >>> spacepoints = np.array([[8, 2, 1.0, 2.0, 3.0],
+    ...                         [8, 2, 1.5, 2.5, 3.5],
+    ...                         [8, 3, 1.0, 2.0, 3.0],
+    ...                         [8, 3, 1.5, 2.5, 3.5]])
+    >>> current = np.array([8, 2])  # Volume and layer to match
+    >>> remaining_spacepoints, matched_row = choose_spacepoint(spacepoints, current)
+    >>> print(remaining_spacepoints)
+    [[8.  2.  1.25 2.25 3.25]
+     [8.  3.  1.25 2.25 3.25]]
+    >>> print(matched_row)
+    [8.  2.  1.25 2.25 3.25]  
+    """
+
+    main_spacepoints = spacepoints
+    volume = current[0]
+    layer = current[1]
+
+    index = np.where((main_spacepoints[:, 0] == volume) & (main_spacepoints[:, 1] == layer))[0]
+
+    if index.size > 0:
+        idx = index[0]
+        matched_row = main_spacepoints[idx]
+        main_spacepoints = np.delete(main_spacepoints, idx, axis=0)
+    else:
+        matched_row = None
+
+    return main_spacepoints, matched_row

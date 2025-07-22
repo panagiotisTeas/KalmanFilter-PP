@@ -9,10 +9,12 @@ from tqdm import tqdm
 from .errors import ErrorFlags
 from .logger import get_logger
 from .config import KALMAN_FILTER_EXPORT_PATH, PARTICLE_IMPORT_PATH
-from .filter import make_spacepoints, filter_spacepoints, filter_momentum, filter_region
-from .helix import Helix, helix_seeding
+from .filter import make_spacepoints, filter_spacepoints, filter_momentum, filter_region, choose_spacepoint
+from .helix import Helix, helix_seeding, parameters_transformation
 from .matrices import F, P, Q, R, get_H
-from .collision_detection import build_rtree, build_delaunay
+from .jacobians import xy_jacobian, rz_jacobian, forward_jacobian, backward_jacobian, qpt_jacobian, omega_jacobian
+from .collision_detection import build_rtree, build_delaunay, collision_detection
+from .linear_kalman import kf_predict, kf_update
 
 logger = get_logger()
 
@@ -82,7 +84,6 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
             #* Filtering spacepoints
             filter_spacepoints(spacepoint_measurements, errors, amount=5)
             if errors.bit_0:
-                logger.debug(f"Skipping particle {particle_id} in event {event_number} due to too few measurements.")
                 continue
 
             seeding_momentum = particle_data[1, 11:14]  #* 11: px, 12: py, 13: pz
@@ -91,13 +92,11 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
             #* Filtering momentum
             filter_momentum(seeding_momentum, errors, momentum=2)
             if errors.bit_1:
-                logger.debug(f"Skipping particle {particle_id} in event {event_number} due to low momentum.")
                 continue
 
             #* Filtering region
             filter_region(spacepoint_measurements, errors, 70, 110, 0, 180)
             if errors.bit_2:
-                logger.debug(f"Skipping particle {particle_id} in event {event_number} due to being outside the region.")
                 continue
 
             #* Write the truth parameters as the first row to every particle
@@ -117,8 +116,52 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
                                 helix.get_state().flatten().tolist() +
                                 P.flatten().tolist() +
                                 [0.0] * (5 * 2))  #* Placeholder for Kalman gain K
+            
+            #* Iterate over the spacepoints
+            #TODO: Increase the iteration counter
+            while spacepoint_measurements.shape[0] > 0:
+                
+                #* Transform the state and covariance matrix from [d0, phi0, q/pt, z0, theta] -> [d1, phi0, omega~, z0, cotTheta]
+                P_transformed = forward_jacobian(helix) @ qpt_jacobian(helix) @ P @ qpt_jacobian(helix).T @ forward_jacobian(helix).T
+                state_transformed = parameters_transformation(helix.get_state(), seeding_charge, 0)
+                #* Kalman filter prediction step
+                state_predicted, P_predicted = kf_predict(state_transformed, P_transformed, F, Q)
+                #* Transform the predicted state and covariance from [d1, phi0, omega~, z0, cotTheta] -> [d0, phi0, omega, z0, theta]
+                helix.update_state(parameters_transformation(state_predicted, seeding_charge, 1))
+                P_back = backward_jacobian(helix) @ P_predicted @ backward_jacobian(helix).T
+
+                #* Check if the eigenvalues of the covariance matrix are positive
+                if np.any(np.linalg.eigvals(P_back) <= 0):
+                    errors.bit_3 = 1
+                    break
+
+                #* Predicted hit and detector position
+                predicted_hit, position_at_detector = collision_detection(helix, rtree, delaunay, position_at_detector)
+
+                #* Check if the particle hit the detector
+                if (position_at_detector is None) and spacepoint_measurements.shape[0] > 0:
+                    errors.bit_4 = 1
+                    break
+
+                #* Find the measurement in the detector
+                spacepoint_measurements, measured_hit = choose_spacepoint(spacepoint_measurements, position_at_detector)
+
+                #* Check if we have a measurement
+                if measured_hit is None:
+                    errors.bit_5 = 1
+                    break
+
+                #* Check if the measurement is inside the error ellipse
+                is_inside = hit_miss()
+                if is_inside is False:
+                    errors.bit_6 = 1
+                    break
+
+
 
             break
+
+        logger.debug(errors.to_json())
 
         break
 

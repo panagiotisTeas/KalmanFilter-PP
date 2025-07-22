@@ -83,6 +83,9 @@ def rz_jacobian(helix: Helix, r: float, phi : float, s: float) -> np.ndarray:
     return np.array([[dphi_dd0, dphi_dphi0, dphi_domega, dphi_dz0, dphi_dcotTheta],
                      [dz_dd0,   dz_dphi0,   dz_domega,   dz_dz0,   dz_dcotTheta]])
 
+#* These Jacobians were calculated by hand (not from the paper).
+#! Must be checked for correctness.
+
 def forward_jacobian(helix: Helix) -> np.ndarray:
     """
     Forward Jacobian
