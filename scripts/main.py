@@ -7,5 +7,5 @@ from kalman_filter_pp.logger import set_log_level
 
 set_log_level(logging.DEBUG)
 
-linear_kalman_algorithm()
+linear_kalman_algorithm(event_end=1001)
 

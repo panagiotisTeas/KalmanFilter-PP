@@ -353,6 +353,22 @@ def particle_rz_projection_byEvents(ax : plt.Axes, path_in : str, momentum_cutof
     data["momentum"] = np.sqrt(data["tpx"]**2 + data["tpy"]**2 + data["tpz"]**2)
     data = data[data["momentum"] >= momentum_cutoff]
 
+    #! Debug
+    x = data['x'].to_numpy()
+    y = data['y'].to_numpy()
+    z = data['z'].to_numpy()
+
+    r = np.sqrt(x**2 + y**2 + z**2)
+    theta = np.degrees(np.arccos(z / r))
+    phi = np.degrees(np.arctan2(y, x)) % 360
+
+    theta_mask = (theta > 70) & (theta < 110)
+    phi_mask = (phi > 0) & (phi < 180)
+    full_mask = theta_mask & phi_mask
+
+    # Return filtered DataFrame
+    data = data[full_mask].reset_index(drop=True)
+
     particle_ids = set(data["particle_id"])
 
     volume_order = {vol_id : i for i, vol_id in enumerate([8, 13, 17, 7, 9, 12, 14, 16, 18])}

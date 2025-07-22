@@ -43,13 +43,12 @@ def kf_predict(x : np.ndarray, P : np.ndarray, F : np.ndarray, Q : np.ndarray) -
      [1.  1.1]]
     """
 
-    x_pred = F @ x
+    x_pred = F @ x.T
     P_pred = F @ P @ F.T + Q
 
     logger.debug(f"Predicted state: {x_pred}")
-    logger.debug(f"Predicted covariance: {P_pred}")
 
-    return x_pred, P_pred
+    return x_pred.T, P_pred
 
 def kf_update(x_pred : np.ndarray, P_pred : np.ndarray, z : np.ndarray, H : np.ndarray, R : np.ndarray) -> tuple:
     """
@@ -102,8 +101,8 @@ def kf_update(x_pred : np.ndarray, P_pred : np.ndarray, z : np.ndarray, H : np.n
     x_updated = x_pred + K @ y
     P_updated = (np.eye(len(P_pred)) - K @ H) @ P_pred @ (np.eye(len(P_pred)) - K @ H).T + K @ R @ K.T #* Joseph formula | numerical stable
 
-    logger.debug(f"Updated state: {x_updated}")
-    logger.debug(f"Updated covariance: {P_updated}")
-    logger.debug(f"Kalman gain: {K}")
+    # logger.debug(f"Updated state: {x_updated}")
+    # logger.debug(f"Updated covariance: {P_updated}")
+    # logger.debug(f"Kalman gain: {K}")
 
     return x_updated, P_updated, K

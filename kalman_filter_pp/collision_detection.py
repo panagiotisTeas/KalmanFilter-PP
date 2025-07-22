@@ -166,7 +166,7 @@ def collision_detection(helix : Helix, rtree_idx: index.Index, delaunay : dict, 
         if collision is None:
             continue
 
-        logger.debug(f"Collision detected at (x={xp}, y={yp}, z={zp}) with detector {collision}")
+        # logger.debug(f"Collision detected at (x={xp}, y={yp}, z={zp}) with detector {collision}")
 
         volume_id, layer_id, _ = collision
 
