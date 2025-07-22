@@ -103,6 +103,6 @@ def kf_update(x_pred : np.ndarray, P_pred : np.ndarray, z : np.ndarray, H : np.n
 
     # logger.debug(f"Updated state: {x_updated}")
     # logger.debug(f"Updated covariance: {P_updated}")
-    # logger.debug(f"Kalman gain: {K}")
+    logger.debug(f"Kalman gain: {K}")
 
     return x_updated, P_updated, K

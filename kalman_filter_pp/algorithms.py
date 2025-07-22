@@ -59,7 +59,10 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
         #* Load the particle data for the event
         event_data = pd.read_csv(PARTICLE_IMPORT_PATH + f"event00000{event_number}.csv")
 
+        vertex_data = event_data[event_data['hit_id'] == -1].reset_index(drop=True)
+
         #! -------------------------------------------------------------------
+
         x = event_data['x'].to_numpy()
         y = event_data['y'].to_numpy()
         z = event_data['z'].to_numpy()
@@ -113,8 +116,10 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
                 logger.debug(f"Event {event_number}, particle {particle_id} has low spacepoints: {len(spacepoint_measurements)}")
                 continue
 
-            seeding_momentum = particle_data[1, 11:14]  #* 11: px, 12: py, 13: pz
-            seeding_charge = particle_data[1, 14]       #* 14: charge
+            vertex = vertex_data[vertex_data['particle_id'] == particle_id].to_numpy().flatten()
+
+            seeding_momentum = vertex[11:14]  #* 11: px, 12: py, 13: pz
+            seeding_charge = vertex[14]       #* 14: charge
 
             #* Filtering momentum
             # filter_momentum(seeding_momentum, errors, momentum=2)
@@ -128,12 +133,11 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
             #     continue
 
             #* Write the truth parameters as the first row to every particle
-            helix_truth = Helix(helix_seeding, spacepoint_measurements[0, 2:5], particle_data[0, 11:14], seeding_charge, magnetic_field)
+            helix_truth = Helix(helix_seeding, vertex[2:5], seeding_momentum, seeding_charge, magnetic_field)
             rows_to_write.append([event_number, particle_id, 1] + 
                                 helix_truth.get_state().flatten().tolist() +
                                 P.flatten().tolist() +
                                 [0.0] * (5 * 2))  #* Placeholder for Kalman gain K
-            spacepoint_measurements = spacepoint_measurements[1:]  #* Remove the first spacepoint as it is already used
             
             #* Initialize the Kalman filter with the first spacepoint
             helix = Helix(helix_seeding, spacepoint_measurements[0, 2:5], seeding_momentum, seeding_charge, magnetic_field)

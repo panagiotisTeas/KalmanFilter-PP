@@ -139,7 +139,7 @@ def collision_detection(helix : Helix, rtree_idx: index.Index, delaunay : dict, 
     
     parameters = helix.get_state()
     d0, phi0, omega, z0, cotTheta = parameters
-    arclength_segments = np.linspace(0, 1000, 15000) #! The numbers are hardcoded because these make sure that we do not miss any collisions
+    arclength_segments = np.linspace(0, 1200, 18000) #! The numbers are hardcoded because these make sure that we do not miss any collisions
 
     x = - d0 * np.sin(phi0) + (1 / omega) * (np.sin(phi0 + omega * arclength_segments) - np.sin(phi0))
     y =   d0 * np.cos(phi0) - (1 / omega) * (np.cos(phi0 + omega * arclength_segments) - np.cos(phi0))
