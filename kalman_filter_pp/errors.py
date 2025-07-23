@@ -8,13 +8,14 @@ class ErrorFlags(BitFlags):
 
     options = {
         #* Error flags
-        0 : "TOO_FEW_MEASUREMENTS",         #* 0b0000001
-        1 : "MOMENTUM_TOO_LOW",             #* 0b0000010
-        2 : "OUTSIDE_REGION",               #* 0b0000100
-        3 : "NEG_EIGENVALUES_COV_MATRIX",   #* 0b0001000
-        4 : "DETECTOR_MISS",                #* 0b0010000
-        5 : "ED_NEQUAL_MEASURED",           #* 0b0100000
-        6 : "NOT_IN_ERROR_ELLIPSE",         #* 0b1000000
+        0 : "TOO_FEW_MEASUREMENTS",         #* 0b00000001
+        1 : "MOMENTUM_TOO_LOW",             #* 0b00000010
+        2 : "OUTSIDE_REGION",               #* 0b00000100
+        3 : "NEG_EIGENVALUES_COV_MATRIX",   #* 0b00001000
+        4 : "DETECTOR_MISS",                #* 0b00010000
+        5 : "ED_NEQUAL_MEASURED",           #* 0b00100000
+        6 : "NOT_IN_ERROR_ELLIPSE",         #* 0b01000000
+        7 : "NAN",                          #* 0b10000000
     }
 
     def filtering(self) -> bool:

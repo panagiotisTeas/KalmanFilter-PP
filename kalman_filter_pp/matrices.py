@@ -24,7 +24,7 @@ Q = np.array([[1e-3, 0e-0, 0e-0, 0e-0, 0e-0],   #* d0
 
 #* Measurement noise covariance for the Kalman filter
 R = np.array([[1e-7, 0],   #* phi
-              [0,    1e-1]])  #* z
+              [0,    1e-4]])  #* z
 
 def get_H(r : float, s : float) -> np.ndarray:
     """

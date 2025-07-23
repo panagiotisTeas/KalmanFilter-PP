@@ -19,13 +19,13 @@ from .linear_kalman import kf_predict, kf_update
 
 logger = get_logger()
 
-def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, spec_event : int = None, spec_particle : int = None, magnetic_field : float = 2, particle_iterations : int = 10000000, output : str = KALMAN_FILTER_EXPORT_PATH, lower_theta : float = 70, lower_phi : float = 0, upper_theta : float = 110, upper_phi : float = 180) -> None:
+def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, spec_event : int = 0, spec_particle : int = 0, magnetic_field : float = 2, particle_iterations : int = 10000000, output : str = KALMAN_FILTER_EXPORT_PATH, lower_theta : float = 70, lower_phi : float = 0, upper_theta : float = 110, upper_phi : float = 180) -> None:
     
     #* Check if the output file exists, if not create it with headers
     if not os.path.exists(output):
         with open(output, 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(["event_number", "particle_id", "is_vertex"
+            writer.writerow(["event_number", "particle_id", "is_vertex",
                             #* Track parameters
                             "d0", "phi0", "q/pT", "z0", "theta",
                             #* Covariance matrix P
@@ -49,7 +49,7 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
     delaunay = build_delaunay()
 
     #* If a specific event is specified, look only at that event
-    if spec_event is not None:
+    if spec_event != 0:
         event_start = spec_event
         event_end = spec_event + 1
 
@@ -90,8 +90,8 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
         logger.info(f"Event {event_number} has {len(event_particle_ids)} particles.")
 
         #* If a specific particle ID is specified, filter the particle IDs
-        if spec_particle is not None:
-            event_particle_ids = event_particle_ids[event_particle_ids == spec_event]
+        if spec_particle != 0:
+            event_particle_ids = np.array([spec_particle])
 
         #* Iterate over the particle IDs
         for particle_id in tqdm(event_particle_ids):
@@ -133,7 +133,7 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
             #     continue
 
             #* Write the truth parameters as the first row to every particle
-            helix_truth = Helix(helix_seeding, vertex[2:5], seeding_momentum, seeding_charge, magnetic_field)
+            helix_truth = Helix(helix_seeding, vertex[5:8], seeding_momentum, seeding_charge, magnetic_field)
             rows_to_write.append([event_number, particle_id, 1] + 
                                 helix_truth.get_state().flatten().tolist() +
                                 P.flatten().tolist() +
@@ -154,11 +154,12 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
             #* Initialize the covariance matrix
             P_cov = P
             
+            logger.info(f"Event {event_number}, particle {particle_id}")
+            
             #* Iterate over the spacepoints
             #TODO: Increase the iteration counter
             while spacepoint_measurements.shape[0] > 0:
 
-                logger.debug(f"Event {event_number}, particle {particle_id}")
                 
                 #* Transform the state and covariance matrix from [d0, phi0, q/pt, z0, theta] -> [d1, phi0, omega~, z0, cotTheta]
                 P_transformed = forward_jacobian(helix) @ qpt_jacobian(helix) @ P_cov @ qpt_jacobian(helix).T @ forward_jacobian(helix).T
@@ -167,6 +168,12 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
                 state_predicted, P_predicted = kf_predict(state_transformed, P_transformed, F, forward_jacobian(helix) @ qpt_jacobian(helix) @ Q @ qpt_jacobian(helix).T @ forward_jacobian(helix).T)
                 #* Transform the predicted state and covariance from [d1, phi0, omega~, z0, cotTheta] -> [d0, phi0, omega, z0, theta]
                 helix.update_state(parameters_transformation(state_predicted, omega_sign, 1))
+
+                if np.isnan(helix.get_state()).any():
+                    logger.warning("Problematic particle, gives NaN")
+                    errors.bit_7 = 1
+                    break
+
                 P_back = backward_jacobian(helix) @ P_predicted @ backward_jacobian(helix).T
 
                 #* Check if the eigenvalues of the covariance matrix are positive
@@ -204,8 +211,15 @@ def linear_kalman_algorithm(event_start : int = 1000, event_end : int = 1050, sp
                 P_pre_update = forward_jacobian(helix) @ P_back @ forward_jacobian(helix).T
                 #* Kalman filter update step
                 state_updated, P_updated, K = kf_update(state_pre_update, P_pre_update, np.array([np.atan2(measured_hit[3], measured_hit[2]), measured_hit[4]]).T, get_H(np.linalg.norm(measured_hit[2:4]), helix.get_arclength()), R)
+                
                 #* Transform the updated state and covariance from [[d1, phi0, omega~, z0, cotTheta] -> [d0, phi0, omega, z0, theta]
                 helix.update_state(parameters_transformation(state_updated, omega_sign, 1))
+
+                if np.isnan(helix.get_state()).any():
+                    logger.warning("Problematic particle, gives NaN")
+                    errors.bit_7 = 1
+                    break
+
                 P_cov = omega_jacobian(helix) @ backward_jacobian(helix) @ P_updated @ backward_jacobian(helix).T @ omega_jacobian(helix).T
 
                 rows_to_write.append([event_number, particle_id, 0] + 
